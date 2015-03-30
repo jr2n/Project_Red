@@ -1,0 +1,120 @@
+<% # Forma para filtrar la calendarizacion de los recursos %>
+<div class="left-side">
+    <fieldset>
+        <legend><%= l :label_filter_plural %></legend>
+        <% # Botones para aplicar y limpiar los filtros %>
+        <a href="#" class="icon icon-checked" onclick="$('#filters-form').submit()"><%= l :button_apply %></a>
+        <a href="<%= resources_path %>" class="icon icon-reload"><%= l :button_clear %></a>
+        <hr>
+        <form id="filters-form" method="get" action="<%= resources_path %>">
+            <% # Filtros %>
+            <table>
+                <% # Seleccion del mes %>
+                <tr>
+                    <td><%= label_tag "year", l(:label_year) %></td>
+                    <td><%= select_year @year, :prefix=> "year", :start_year=> Date.today.year, :discard_type=> true %></td>
+                </tr>
+                <% # Seleccion del anio %>
+                <tr>
+                    <td><%= label_tag "month", l(:label_month) %></td>
+                    <td><%= select_month @month, :prefix=> "month", :discard_type=> true %></td>
+                </tr>
+            </table>
+            <hr>
+            <div style="text-align: center;"><strong>Resources</strong></div>
+            <table id="resources">
+                <tbody>
+                    <% @resources.each do |k, v| %>
+                        <tr id="<%= k %>" <%= "class=selected" if v[:selected] %>>
+                            <td class="resource-identifier" hidden><input type="text" name="resources[]" <%= "value=#{k}" if v[:selected] %> <%= "disabled" if !v[:selected] %>></td>
+                            <td class="resource-name"><%= v[:name] %></td>
+                            <td>
+                                <% if v[:selected] %>
+                                    <div class="sphere" style="background-color: <%= v[:colour] %>;"</div>
+                                <% end %>
+                            </td>
+                        </tr>
+                    <% end %>
+                </tbody>
+            </table>
+        </form>
+    </fieldset>
+</div>
+<div class="right-side">
+    <% # Enlaces para el mes anterior y el mes siguiente %>
+    <p style="float: right"><%= link_to_month(@year, @month, (@resources.keys.select { |k| @resources[k][:selected] }), :previous) %> | <%= link_to_month(@year, @month, (@resources.keys.select { |k| @resources[k][:selected] }), :next) %></p>
+    <% # Impresion del calendario %>
+    <table class="cal">
+        <thead>
+            <tr>
+                <% # Imprime la celda mas al noreste vacia %>
+                <th scope="col" title="<%= l :label_week %>" class="week-number"></th>
+                <% # Imprime las columnas correspondientes a los siete dias de la semana empezando por el Domingo %>
+                <% 7.times do |i| %>
+                    <th scope="col"><%= day_name((@calendar.first_wday + i) % 7) %></th>
+                <% end %>
+            </tr>
+        </thead>
+        <tbody>
+            <% day= @calendar.startdt %>
+            <% # Itera hasta el ultimo dia del mes %>
+            <% while day <= @calendar.enddt %>
+                <% # Imprime la celda correspondiente al numero se semana si el dia actual es el primer dia de la semana(Domingo) %>
+                <% if @calendar.first_wday == day.cwday %>
+                    <tr>
+                    <% # (day + ((11 - day.cwday) % 7)) Siempre da el jueves de la proxima semana %>
+                    <td class="week-number" title="<%= l :label_week %>"><%= (day + ((11 - day.cwday) % 7)).cweek %></td>
+                <% end %>
+                <% even= day.month == @calendar.month %>
+                <td class="<%= (even) ? 'even' : 'odd' %><%= ' today' if Date.today == day %>">
+                    <% # Imprime el numero del dia %>
+                    <p class="day-num"><%= day.day %></p>
+                    <% # Si el dia pertenece al mes imprime los eventos de dicho dia %>
+                    <% if even %>
+                        <table id="events">
+                            <% # Itera sobre cada evento que exista en este dia %>
+                            <% counter= 0 %>
+                            <% @calendar.events_on(day).each do |e| %>
+                                <% if counter == 0 %>
+                                    <tr>
+                                <% end %>
+                                <td style="background-color: <%= @resources[e.id][:colour] %>"><%= "#{ e.hours.to_i }/#{ @resources[e.id][:schedule][day_name day.cwday] }" %></td>
+                                <% counter+= 1 %>
+                                <% if counter == 4 %>
+                                    </tr>
+                                    <% counter= 0 %>
+                                <% end %>
+                            <% end %>
+                        </table>
+                    <% end %>
+                </td>
+                <% # Cierra la fila si es el ultimo dia de la semana(Sabado) %>
+                <% if day.cwday == @calendar.last_wday %>
+                    </tr>
+                <% end %>
+                <% # Pasa al proximo dia %>
+                <% day= day + 1 %>
+            <% end %>
+        </tbody>
+    </table>
+</div>
+<script>
+$("#resources").on("click", "tr", function () {
+    var input= $(this).children("td.resource-identifier").children("input");
+
+    if($(input).attr("disabled") === "disabled") {
+        $(input).removeAttr("disabled");
+        $(input).val($(this).attr("id"));
+        $(this).attr("class", "selected");
+    }
+    else {
+        $(input).val("");
+        $(this).removeAttr("class");
+        $(input).attr("disabled", "disabled");
+    }
+});
+</script>
+<% html_title "Resources - Redmine" %>
+<% content_for :header_tags do %>
+    <%= stylesheet_link_tag 'resources', :plugin => 'ppr' %>
+<% end %>

@@ -1,0 +1,183 @@
+<% unless @user.id.nil? %>
+<fieldset class="box tabular">
+    <legend>Exceptions</legend>
+    <div class="splitcontentleft" >
+	
+        <div class="splitcontentleft">
+			Date <%= text_field_tag 'exception-date' %>
+            Start Time (10:00 AM) <%= select_tag "exception-start-time", "<option>8:00 AM</option><option>9:00 AM</option><option>10:00 AM</option><option>11:00 AM</option><option>12:00 PM</option><option>1:00 PM</option><option>2:00 PM</option><option>3:00 PM</option><option>4:00 PM</option><option>5:00 PM</option><option>6:00 PM</option><option>7:00 PM</option><option>8:00 PM</option>".html_safe %>
+            <br/><br/>
+            End Time (10:00 PM) <%= select_tag "exception-end-time", "<option>9:00 AM</option><option>10:00 AM</option><option>11:00 AM</option><option>12:00 PM</option><option>1:00 PM</option><option>2:00 PM</option><option>3:00 PM</option><option>4:00 PM</option><option>5:00 PM</option><option>6:00 PM</option><option>7:00 PM</option><option>8:00 PM</option><option>9:00 PM</option>".html_safe %>
+			Comments <%= text_area_tag 'exception-comment' %>
+			
+        </div>
+   
+    </div>
+	
+    <div class="splitcontentright" ;  style="float:left; margin-left: -100px;" >
+        <table id="user_schedule_entries";  width="400px";>
+			<thead align="left">
+				<tr>
+				  <th>Date</th>
+				  <th>Start Time</th>
+				  <th>End Time</th>
+				  <th>Comments</th>
+				</tr>
+			</thead>
+			<tbody>
+				<%
+					user_exceptions = UserScheduleException.where(:user_id => params[:id])
+					user_exceptions.each do |user_exception|
+				%>
+					<tr>
+						<td><%= user_exception.time_start.to_s(:rfc822)[0..15]   %></td>
+						<td><%= user_exception.time_start.to_s(:time)  %></td>
+						<td><%= user_exception.time_end.to_s(:time)  %></td>
+						<td><%= user_exception.comments.to_s[0..30]  %></td>
+						
+						 <td><input id="user_exception_entry_remove_button" type="submit" value="X" onClick="onRemException(<%= user_exception.id%>)"></td>
+					</tr>
+				<% end %>
+			</tbody>
+        </table>
+
+    </div>
+	<div >
+	
+	</div>
+</fieldset>
+<script>
+$(document).ready(function() { $('#exception-date').datepicker(); });
+
+
+function onRemException(id){
+	if (confirm('Are you sure?')) {
+	
+		var exception = { user_id: <%= @user.id %>, id: id};
+		$.ajax({
+        type: "POST",
+        url: "<%= destroy2_user_schedule_exception_path(user_id: @user.id) %>",
+        data: {exception: exception},
+        dataType: "json",
+        success: function(data) {
+            console.log(data);
+        },
+        error: function(jqXHR, textStatus, errorThrown) {
+            alert(jqXHR.responseText);
+        }
+    });
+		
+	} else {
+	
+	}
+
+}
+
+function parseExceptionTime(s) {
+    var re = /^(\d?\d):(\d?\d) (am|pm)$/i;
+    match = s.match(re);
+    if (match === null)
+        return null;
+
+    var obj =  { hour: match[1], minute: match[2], m: match[3] };
+
+    if (obj.m.toUpperCase() == 'PM' && parseInt(obj.hour) < 12) {
+        obj.hour = Number(parseInt(obj.hour) + 12).toString();
+    }
+
+    return obj;
+}
+
+function validateExceptionTime(t) {
+    if (t.hour < 0 || t.hour > 23) {
+        return {validated: false, error: 'Hour needs to be between 1 and 12'};
+    } else if (t.minute < 0 || t.minute > 59) {
+        return {validated: false, error: 'Minute needs to be between 0 and 59'};
+    } else {
+        return {validated: true};
+    }
+}
+
+function parseExceptionDate(s) {
+    var re = /^(\d\d)\/(\d\d)\/(\d\d\d\d)$/;
+    match = s.match(re);
+    if (match === null)
+        return null;
+    else
+        return { year: match[3], month: match[1], day: match[2]}
+}
+
+function validateExceptionDate(t) {
+    if (t.month < 1 || t.month > 12) {
+        return {validated: false, error: 'Month(' + t.month +') needs to be between 1 and 12'};
+    } else if (t.day < 0 || t.day > 31) {
+        return {validated: false, error: 'Day('+ t.day + ' needs to be between 0 and 59'};
+    } else {
+        return {validated: true};
+    }
+}
+
+$(document).on("click", 'input[name="commit"]', function() {
+	if ( parseExceptionDate(document.getElementById('exception-date').value) !== null){
+		 var start_time = parseExceptionTime(document.getElementById('exception-start-time').value);
+			if (start_time === null) {
+				alert('Format error on Start Time. Format is: HH:MM AM');
+				return;
+			}
+
+			var v = validateExceptionTime(start_time);
+			if (v.validated === false) {
+				alert('Start Time error: ' + v.error);
+			}
+
+			var end_time = parseExceptionTime(document.getElementById('exception-end-time').value);
+			if (start_time === null) {
+				alert('Format error on End Time. Format is: HH:MM AM');
+				return;
+			}
+
+
+			v = validateExceptionTime(end_time);
+			if (v.validated === false) {
+				alert('End Time error: ' + v.error);
+				return;
+			}
+
+			var d = parseExceptionDate(document.getElementById('exception-date').value);
+			if (d === null) {
+				alert('Format error on Date. Format is: YYYY/MM/DD');
+				return;
+			}
+
+			v = validateExceptionDate(d);
+			if (v.validated === false) {
+				alert('Date error: ' + v.error);
+				return;
+			}
+			
+			
+			start_time_str = d.year + '-' + d.month + '-' + d.day + ' ' + start_time.hour + ':' + start_time.minute + ':00';
+			end_time_str = d.year + '-' + d.month + '-' + d.day + ' ' + end_time.hour + ':' + end_time.minute + ':00';
+			comment_str = document.getElementById('exception-comment').value;
+
+			var exception = { user_id: <%= @user.id %>, start_time: start_time_str, end_time: end_time_str, comments: comment_str};
+			console.log(exception);
+			
+				$.ajax({
+					type: "POST",
+					url: "<%= create2_user_schedule_exception_path(user_id: @user.id) %>",
+					data: {exception: exception},
+					dataType: "json",
+					success: function(data) {
+						console.log(data);
+					},
+					error: function(jqXHR, textStatus, errorThrown) {
+						alert(jqXHR.responseText);
+					}
+				});
+	}
+});
+
+
+</script>
+<% end %>
